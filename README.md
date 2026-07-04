@@ -147,8 +147,9 @@ Konfiguration, Skripte und Anleitung: **MIT** (siehe `LICENSE`).
 **WordStar 7.0 selbst ist nicht enthalten** und gehört seinen Rechteinhabern;
 es stammt aus Robert J. Sawyers frei verfügbarem Archiv (oben verlinkt).
 
-**Verwandtes Projekt:** Dasselbe für **MS Word 5.5 für DOS** →
-[word55-on-linux](https://github.com/drdewes/word55-on-linux).
+**Verwandte Projekte:** Dasselbe für zwei weitere DOS-Klassiker —
+[word55-on-linux](https://github.com/drdewes/word55-on-linux) (MS Word 5.5) und
+[wordperfect-on-linux](https://github.com/drdewes/wordperfect-on-linux) (WordPerfect 5.1).
 
 ---
 
@@ -216,5 +217,6 @@ windowed instead: `wordstar -set "sdl fullscreen=false"`.
 **License:** MIT for the config, scripts and docs. **WordStar 7.0 itself is not
 included** and comes from Robert J. Sawyer's freely available archive.
 
-**Related project:** the same treatment for **MS Word 5.5 for DOS** →
-[word55-on-linux](https://github.com/drdewes/word55-on-linux).
+**Related projects:** the same treatment for two more DOS classics —
+[word55-on-linux](https://github.com/drdewes/word55-on-linux) (MS Word 5.5) and
+[wordperfect-on-linux](https://github.com/drdewes/wordperfect-on-linux) (WordPerfect 5.1).
