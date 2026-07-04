@@ -1,0 +1,97 @@
+#!/bin/sh
+# ws-docs — Texte zwischen dem WordStar-7-Image und Linux/Dropbox schaufeln.
+# Das FAT16-HDD-Image von WordStar ist partitioniert; die Partition beginnt bei
+# Sektor 63 -> mtools-Offset @@63S. WordStar startet im Ordner C:\TEXTE, dort
+# landen neue Dokumente.
+#
+#   ws-docs                 interaktiv (fzf): Datei(en) waehlen -> nach Linux exportieren
+#   ws-docs list            Inhalt von C:\TEXTE im Image anzeigen
+#   ws-docs export DATEI    eine Datei aus dem Image nach $DEST holen
+#   ws-docs export all      alle Texte aus dem Image nach $DEST holen
+#   ws-docs import DATEI...  Linux-Datei(en) nach C:\TEXTE ins Image legen
+#
+# Ziel-/Quellordner (in der Dropbox -> wird synchronisiert):
+DEST="${WS_DOCS_DIR:-$HOME/Dokumente/wordstar}"
+IMG="$HOME/.local/share/wordstar/wordstarhd.img@@63S"
+DDIR="::/TEXTE"
+
+if ! command -v mcopy >/dev/null 2>&1; then
+	echo "Fehler: mtools (mcopy) nicht installiert." >&2
+	exit 1
+fi
+if [ ! -f "$HOME/.local/share/wordstar/wordstarhd.img" ]; then
+	echo "Fehler: wordstarhd.img nicht gefunden." >&2
+	exit 1
+fi
+
+list() {
+	mdir -i "$IMG" "$DDIR" 2>/dev/null | tr -d '\r'
+}
+
+# Reine Dateinamen (8.3) im Image auflisten, ohne . / .. / Zusammenfassung.
+names() {
+	mdir -/ -b -i "$IMG" "$DDIR" 2>/dev/null | tr -d '\r' \
+		| sed -e 's#.*/##' | grep -viE '^\.{1,2}$' | grep -vE '^$'
+}
+
+export_one() {
+	f="$1"
+	mkdir -p "$DEST"
+	# -m = Zeitstempel uebernehmen, -n = ohne Rueckfrage ueberschreiben
+	if mcopy -m -n -i "$IMG" "$DDIR/$f" "$DEST/" 2>/dev/null; then
+		echo "  export: $f  ->  $DEST/"
+	else
+		echo "  FEHLER beim Export von $f" >&2
+	fi
+}
+
+case "$1" in
+list)
+	list
+	;;
+export)
+	shift
+	case "$1" in
+	all|"")
+		names | while IFS= read -r f; do export_one "$f"; done
+		;;
+	*)
+		for f in "$@"; do export_one "$f"; done
+		;;
+	esac
+	echo "Fertig. Ziel: $DEST"
+	;;
+import)
+	shift
+	if [ $# -eq 0 ]; then echo "Nutzung: ws-docs import DATEI..." >&2; exit 1; fi
+	for src in "$@"; do
+		if [ ! -f "$src" ]; then echo "  nicht gefunden: $src" >&2; continue; fi
+		# -o = ohne Rueckfrage ueberschreiben; DOS 8.3 beachten (Name kuerzen falls noetig)
+		if mcopy -o -i "$IMG" "$src" "$DDIR/" 2>/dev/null; then
+			echo "  import: $src  ->  C:\\TEXTE"
+		else
+			echo "  FEHLER beim Import von $src (evtl. Name nicht 8.3-tauglich)" >&2
+		fi
+	done
+	;;
+""|pick)
+	# interaktiv: fzf-Auswahl -> Export
+	if ! command -v fzf >/dev/null 2>&1; then
+		echo "fzf nicht installiert. Nutze: ws-docs export <datei|all>" >&2
+		list
+		exit 0
+	fi
+	sel=$(names | fzf --multi --prompt="WordStar-Text exportieren> " \
+		--header="TAB=mehrere waehlen, ENTER=exportieren nach $DEST")
+	[ -z "$sel" ] && { echo "Abgebrochen."; exit 0; }
+	printf '%s\n' "$sel" | while IFS= read -r f; do export_one "$f"; done
+	echo "Fertig. Ziel: $DEST"
+	;;
+-h|--help|help)
+	sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'
+	;;
+*)
+	echo "Unbekannt: $1  (ws-docs --help)" >&2
+	exit 1
+	;;
+esac

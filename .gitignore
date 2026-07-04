@@ -1,0 +1,27 @@
+# Niemals mit hochladen: WordStar-Programmdateien + gebautes Festplatten-Image
+# (fremdes Copyright bzw. lokal erzeugt)
+*.img
+*.IMG
+
+# WordStar-Programmdateien, falls jemand sie versehentlich hier ablegt
+WS/
+ws/
+*.EXE
+*.exe
+*.OVR
+*.ovr
+*.COM
+*.com
+*.HLP
+*.hlp
+
+# WordStar-Druckertreiber (.PDF sind bei WordStar KEINE Adobe-PDFs, sondern
+# Treiber) + heruntergeladene Archive
+*.PDF
+*.zip
+*.7z
+
+# Erzeugte Ausgaben / Uebliches
+*.pdf
+*.bak
+.DS_Store

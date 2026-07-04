@@ -1,0 +1,73 @@
+#!/bin/sh
+# ws-lpt-print — Wird von DOSBox-X aufgerufen, wenn WordStar 7 auf LPT1 druckt.
+# WordStar gibt mit dem PostScript-Treiber PS.PDF (^P? -> "PS") PostScript auf
+# LPT1 aus; DOSBox-X sammelt das in eine Datei und ruft dieses Skript mit ihr
+# als $1 auf. Ergebnis: ein fertiges PDF in ~/Dokumente/wordstar.
+#
+# Modi (per Umgebungsvariable WS_PRINT_MODE):
+#   pdf (Standard)  -> NUR PDF erzeugen (kein Papier) und oeffnen
+#   print           -> zusaetzlich an CUPS/HP schicken
+#
+# Weitere Variablen:
+#   WS_PRINTER    Ziel-Drucker (Default: HP_SmartTank_5105)
+#   WS_DOCS_DIR   Ablageordner fuer die PDFs (Default: ~/Dokumente/wordstar)
+
+PSFILE="${1:-/tmp/ws-lpt.ps}"
+PRINTER="${WS_PRINTER:-HP_SmartTank_5105}"
+MODE="${WS_PRINT_MODE:-pdf}"
+OUTDIR="${WS_DOCS_DIR:-$HOME/Dokumente/wordstar}"
+LOG="$HOME/.local/share/wordstar/print.log"
+
+log() { printf '%s  %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*" >> "$LOG"; }
+notify() { command -v notify-send >/dev/null 2>&1 && notify-send -a "WordStar" "$1" "$2"; }
+
+mkdir -p "$OUTDIR"
+
+if [ ! -s "$PSFILE" ]; then
+  log "leere/keine Druckdatei ($PSFILE) — nichts zu tun"
+  exit 0
+fi
+
+# WordStar/PS schickt evtl. ein ^D (0x04) als Jobtrenner und ggf. Vorspann vor
+# dem eigentlichen %!PS-Header. Fuer sauberes PDF bereinigen.
+CLEAN="$(mktemp /tmp/ws-ps.XXXXXX.ps)"
+python3 - "$PSFILE" "$CLEAN" <<'PY'
+import sys
+d = open(sys.argv[1], 'rb').read()
+i = d.find(b'%!')
+if i > 0:
+    d = d[i:]
+d = d.replace(b'\x04', b'')          # ^D-Jobtrenner entfernen
+open(sys.argv[2], 'wb').write(d)
+PY
+
+STAMP="$(date '+%Y%m%d-%H%M%S')"
+PDF="$OUTDIR/wordstar-druck-$STAMP.pdf"
+
+if ps2pdf "$CLEAN" "$PDF" >>"$LOG" 2>&1; then
+  log "PDF erzeugt: $PDF ($(wc -c <"$CLEAN") Bytes PostScript)"
+else
+  log "ps2pdf FEHLGESCHLAGEN — PostScript liegt in $CLEAN (nicht geloescht)"
+  notify "WordStar: Druck fehlgeschlagen" "PostScript nicht lesbar — siehe $LOG"
+  exit 1
+fi
+
+case "$MODE" in
+  print)
+    if lp -d "$PRINTER" "$PDF" >>"$LOG" 2>&1; then
+      log "an $PRINTER geschickt"
+      notify "WordStar: gedruckt" "$PRINTER — PDF: $(basename "$PDF")"
+    else
+      log "lp auf $PRINTER FEHLGESCHLAGEN — PDF liegt unter $PDF"
+      notify "WordStar: Druck fehlgeschlagen" "$PRINTER nicht erreichbar — siehe $LOG"
+    fi
+    ;;
+  *)
+    log "Modus=pdf: nur PDF, kein Papier"
+    notify "WordStar: PDF fertig" "$(basename "$PDF")"
+    command -v xdg-open >/dev/null 2>&1 && xdg-open "$PDF" >/dev/null 2>&1 &
+    ;;
+esac
+
+rm -f "$CLEAN"
+exit 0
